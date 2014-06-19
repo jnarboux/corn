@@ -45,16 +45,29 @@ seen_Proof = False
 line_cont = None
 pending_line = None
 base_indentation = ''
+indentation_depth = [1]
+
+def update_indentation(old_subgoals,new_subgoals,stack):
+  if new_subgoals > subgoals:
+    stack=[new_subgoals-old_subgoals-1]+stack
+  if new_subgoals < subgoals:
+    if stack[0]>0:
+      stack[0]=stack[0]-1
+    else:
+      stack=stack[1:]
+  return stack
 
 def subgoals_changed(new_subgoals):
   global subgoals
   global pending_line
+  global indentation_depth
   if subgoals == new_subgoals + 1:
     if pending_line:
       lstripped = pending_line.lstrip()
       spl = lstripped.split(". ")
       print ' ' * (len(pending_line) - len(lstripped) - 1), lstripped
       pending_line = None
+  indentation_depth=update_indentation(subgoals,new_subgoals,indentation_depth)
   subgoals = new_subgoals
 
 def print_Proof_if_necessary():
@@ -64,7 +77,7 @@ def print_Proof_if_necessary():
     seen_Proof = True
 
 def subgoal_indentation():
-  return base_indentation + options.subgoal_indentation * subgoals
+  return base_indentation + options.subgoal_indentation * len(indentation_depth)
 
 for l in sys.stdin:
   l = l.rstrip() + '\n'
@@ -75,6 +88,8 @@ for l in sys.stdin:
   if prompt.find("Proof completed.") != -1 or prompt.find(" is defined") != -1:
     subgoals_changed(0)
     seen_Proof = False
+    indentation_depth=[1]
+    
   elif m: subgoals_changed(int(m.group(1)))
     # "Proof completed." is not printed when the proof is "Proof <term>."
 
@@ -85,7 +100,7 @@ for l in sys.stdin:
   if content.startswith("Proof"): seen_Proof = True
 
   if content[:1].isupper() and subgoals == 0:
-    base_indentation = indentation
+    base_indentation = ''
 
   if content == '':
     if subgoals == 0 or not options.eraseEmptyLines: print
@@ -115,4 +130,3 @@ for l in sys.stdin:
 
 assert(subgoals == 0)
 if pending_line: print pending_line
-
